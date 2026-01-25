@@ -1,5 +1,0 @@
-# requirements.txt - 最小版本
-streamlit
-pandas
-numpy
-statsmodels
