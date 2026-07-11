@@ -1,4 +1,4 @@
-# app.py - 完整的Streamlit应用
+# app.py - 完整应用（界面中文，特征键英文）
 import streamlit as st
 import pickle
 import pandas as pd
@@ -15,7 +15,6 @@ st.set_page_config(
 st.title("📈 等级Logistic回归预测计算器")
 st.markdown("使用OrderedModel（等级logistic回归）进行健康风险评估预测")
 
-
 # 加载模型函数
 @st.cache_resource
 def load_model():
@@ -31,132 +30,139 @@ def load_model():
         st.error(f"❌ 加载模型时出错: {str(e)}")
         return None
 
-
-# 预测函数
+# 预测函数（特征键为英文）
 def predict_single(features_dict, model_data):
-    """单个样本预测"""
+    """单个样本预测，features_dict的键必须是英文"""
     try:
-        # 获取特征名称（确保顺序与训练时一致）
         feature_names = model_data['feature_names']
-
-        # 将用户输入转换为模型需要的格式
         features_list = []
         for feature in feature_names:
-            value = features_dict[feature]
-            features_list.append(value)
-
-        # 转换为DataFrame
+            if feature not in features_dict:
+                raise KeyError(f"缺少特征: {feature}")
+            features_list.append(features_dict[feature])
+        
         X_new = pd.DataFrame([features_list], columns=feature_names)
-
-        # 使用拟合结果进行预测
         res = model_data['res']
         predicted_probs = res.predict(X_new)
-
-        # 处理预测结果
+        
         if predicted_probs.ndim == 2:
             probabilities = predicted_probs[0]
         else:
             probabilities = predicted_probs
-
-        # 预测最可能的类别
+        
         predicted_class = np.argmax(probabilities)
-
-        # 获取类别标签
+        
         if 'y_category_labels' in model_data:
             predicted_label = model_data['y_category_labels'][predicted_class]
         elif 'y_categories' in model_data:
             predicted_label = str(model_data['y_categories'][predicted_class])
         else:
             predicted_label = str(predicted_class)
-
+        
         return {
             'prediction': predicted_class,
             'prediction_label': predicted_label,
             'probabilities': probabilities,
-            'class_labels': model_data.get('y_category_labels',
-                                           model_data.get('y_categories',
-                                                          list(range(len(probabilities))))),
+            'class_labels': model_data.get('y_category_labels', 
+                                         model_data.get('y_categories', 
+                                                      list(range(len(probabilities))))),
             'feature_values': features_dict
         }
     except Exception as e:
         st.error(f"预测时出错: {str(e)}")
         return None
 
-
 # 主函数
 def main():
-    # 加载模型
     model_data = load_model()
     if model_data is None:
         st.stop()
-
-    # 显示模型信息
+    
+    # 侧边栏模型信息
     st.sidebar.success("✅ 模型加载成功")
     st.sidebar.info(f"特征数量: {len(model_data.get('feature_names', []))}")
-
-    # 创建两个标签页
+    with st.sidebar.expander("🔍 模型特征名称（英文）"):
+        for i, name in enumerate(model_data.get('feature_names', [])):
+            st.write(f"{i+1}. {name}")
+    
     tab1, tab2 = st.tabs(["🔍 单个预测", "ℹ️ 关于"])
-
+    
     with tab1:
         st.subheader("单个样本预测")
-
-        # 根据你的特征映射创建输入框
         st.markdown("### 请输入特征值:")
-
-        # 创建两列布局
+        
         col1, col2 = st.columns(2)
-
+        
+        # 使用英文键存储，但显示中文标签
         features_dict = {}
-
+        
         with col1:
-            # 1. 性别
+            # 1. 性别 (Gender)
             gender = st.selectbox(
                 "性别",
                 options=[0, 1],
                 format_func=lambda x: "女" if x == 0 else "男",
                 help="0: 女, 1: 男"
             )
-            features_dict['性别'] = gender
-
-            # 2. 年龄分层
-            age_stratum = st.selectbox(
+            features_dict['Gender'] = gender
+            
+            # 2. 年龄分层 (Age_Group)
+            age_group = st.selectbox(
                 "年龄分层",
                 options=[1, 2, 3],
-                format_func=lambda x: ["60-69岁", "70-79岁", "≥80岁"][x - 1],
-                help="年龄分层: 1:60-69岁, 2:70-79岁, 3:≥80岁"
+                format_func=lambda x: ["60-69岁", "70-79岁", "≥80岁"][x-1],
+                help="1:60-69岁, 2:70-79岁, 3:≥80岁"
             )
-            features_dict['年龄分层'] = age_stratum
-
-            # 3. 月收入
+            features_dict['Age_Group'] = age_group
+            
+            # 3. 月收入 (Monthly_Income)
             monthly_income = st.selectbox(
                 "月收入",
                 options=[1, 2, 3, 4],
-                format_func=lambda x: ["<2000元", "2000-4000元", "4000-6000元", ">6000元"][x - 1],
+                format_func=lambda x: ["<2000元", "2000-4000元", "4000-6000元", ">6000元"][x-1],
                 help="月收入分层"
             )
-            features_dict['月收入'] = monthly_income
-
-            # 4. 文化程度
-            education = st.selectbox(
+            features_dict['Monthly_Income'] = monthly_income
+            
+            # 4. 文化程度 (Education_Level)
+            education_level = st.selectbox(
                 "文化程度",
                 options=[1, 2, 3, 4],
-                format_func=lambda x: ["小学及以下", "初中", "高中/中专", "大专及以上"][x - 1],
+                format_func=lambda x: ["小学及以下", "初中", "高中/中专", "大专及以上"][x-1],
                 help="文化程度"
             )
-            features_dict['文化程度'] = education
-
-            # 5. 婚姻状况
+            features_dict['Education_Level'] = education_level
+            
+            # 5. 婚姻状况 (Marital_Status)
             marital_status = st.selectbox(
                 "婚姻状况",
                 options=[0, 1],
                 format_func=lambda x: ["已婚", "离异/丧偶"][x],
                 help="婚姻状况"
             )
-            features_dict['婚姻状况'] = marital_status
-
+            features_dict['Marital_Status'] = marital_status
+            
+            # 6. 新辅助放化疗 (Neoadjuvant_Chemoradiotherapy)
+            neoadjuvant = st.selectbox(
+                "新辅助放化疗",
+                options=[1, 0],
+                format_func=lambda x: "是" if x == 1 else "否",
+                help="1: 是, 0: 否"
+            )
+            features_dict['Neoadjuvant_Chemoradiotherapy'] = neoadjuvant
+            
+            # 7. 肿瘤部位 (Tumor_Location)
+            tumor_location = st.selectbox(
+                "肿瘤部位",
+                options=[1, 0],
+                format_func=lambda x: "累计直肠或直肠恶性肿瘤" if x == 1 else "结肠恶性肿瘤",
+                help="1: 累计直肠或直肠恶性肿瘤, 0: 结肠恶性肿瘤"
+            )
+            features_dict['Tumor_Location'] = tumor_location
+        
         with col2:
-            # 6. 查尔森共病指数评估量表
-            charlson_index = st.slider(
+            # 8. 查尔森共病指数 (Charlson_Comorbidity_Index)
+            charlson = st.slider(
                 "查尔森共病指数评估量表",
                 min_value=0,
                 max_value=20,
@@ -164,10 +170,10 @@ def main():
                 step=1,
                 help="查尔森共病指数评分"
             )
-            features_dict['查尔森共病指数评估量表'] = charlson_index
-
-            # 7. 运动耐量表
-            exercise_tolerance = st.slider(
+            features_dict['Charlson_Comorbidity_Index'] = charlson
+            
+            # 9. 运动耐量表 (Exercise_Tolerance_Scale)
+            exercise = st.slider(
                 "运动耐量表",
                 min_value=0.0,
                 max_value=10.0,
@@ -175,10 +181,10 @@ def main():
                 step=0.1,
                 help="运动耐量评分"
             )
-            features_dict['运动耐量表'] = exercise_tolerance
-
-            # 8. 简版老年抑郁量表
-            geriatric_depression = st.slider(
+            features_dict['Exercise_Tolerance_Scale'] = exercise
+            
+            # 10. 简版老年抑郁量表 (GDS_Short_Form)
+            gds = st.slider(
                 "简版老年抑郁量表",
                 min_value=0,
                 max_value=15,
@@ -186,10 +192,10 @@ def main():
                 step=1,
                 help="老年抑郁量表评分"
             )
-            features_dict['简版老年抑郁量表'] = geriatric_depression
-
-            # 9. 简易营养量表MNA-SF
-            mna_sf = st.slider(
+            features_dict['GDS_Short_Form'] = gds
+            
+            # 11. 简易营养量表 (MNA_SF)
+            mna = st.slider(
                 "简易营养量表MNA-SF",
                 min_value=0,
                 max_value=14,
@@ -197,42 +203,52 @@ def main():
                 step=1,
                 help="营养状况评分"
             )
-            features_dict['简易营养量表MNA-SF'] = mna_sf
-
-            # 10. BMI分层
-            bmi_stratum = st.selectbox(
+            features_dict['MNA_SF'] = mna
+            
+            # 12. BMI分层 (BMI_Category)
+            bmi = st.selectbox(
                 "BMI分层",
                 options=[4, 3, 2, 1],
-                format_func=lambda x: ["偏瘦(<18.5)", "正常(18.5-24)", "超重(24-28)", "肥胖(≥28)"][4 - x],
+                format_func=lambda x: ["偏瘦(<18.5)", "正常(18.5-24)", "超重(24-28)", "肥胖(≥28)"][4-x],
                 help="BMI分层"
             )
-            features_dict['BMI分层'] = bmi_stratum
-
+            features_dict['BMI_Category'] = bmi
+            
+            # 13. 肿瘤分期 (Stage)
+            stage = st.selectbox(
+                "肿瘤分期",
+                options=[0, 1, 2, 3, 4],
+                format_func=lambda x: f"{x}期" if x != 0 else "0期",
+                help="0: 0期, 1: 1期, 2: 2期, 3: 3期, 4: 4期"
+            )
+            features_dict['Stage'] = stage
+            
+            # 14. ASA分级 (ASA_Classification)
+            asa = st.selectbox(
+                "ASA分级",
+                options=[2, 3, 4],
+                format_func=lambda x: f"{x}级",
+                help="2: 2级, 3: 3级, 4: 4级"
+            )
+            features_dict['ASA_Classification'] = asa
+        
         # 预测按钮
         if st.button("🚀 开始预测", type="primary", use_container_width=True):
             with st.spinner("正在计算..."):
-                # 验证特征数量
-                if len(features_dict) != len(model_data.get('feature_names', [])):
-                    st.error("特征数量不匹配！")
+                expected_count = len(model_data.get('feature_names', []))
+                if len(features_dict) != expected_count:
+                    st.error(f"特征数量不匹配！期望 {expected_count} 个，实际输入 {len(features_dict)} 个。")
                     return
-
-                # 进行预测
+                
                 result = predict_single(features_dict, model_data)
-
                 if result is None:
                     return
-
-                # 显示预测结果
+                
                 st.success("✅ 预测完成！")
-
-                # 创建结果展示区域
                 st.subheader("📋 预测结果")
-
-                # 显示预测等级
+                
                 col_result1, col_result2 = st.columns([1, 2])
-
                 with col_result1:
-                    # 预测等级卡片
                     st.markdown(f"""
                     <div style="
                         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -247,90 +263,110 @@ def main():
                         <p style="margin: 0;">置信度: {result['probabilities'][result['prediction']]:.2%}</p>
                     </div>
                     """, unsafe_allow_html=True)
-
+                
                 with col_result2:
-                    # 概率表格
                     prob_df = pd.DataFrame({
                         '等级': result['class_labels'],
                         '概率': result['probabilities']
                     })
                     prob_df['概率 (%)'] = (prob_df['概率'] * 100).round(2)
-
-                    # 高亮预测的等级
                     def highlight_row(row):
                         if row.name == result['prediction']:
                             return ['background-color: #e6f7ff'] * len(row)
                         return [''] * len(row)
-
                     st.dataframe(
                         prob_df[['等级', '概率 (%)']].style.apply(highlight_row, axis=1),
                         use_container_width=True
                     )
-
-                # 显示输入的特征值
+                
+                # 显示输入特征值（中文显示）
                 with st.expander("📝 查看输入的特征值"):
-                    # 创建特征值表格
+                    # 建立英文到中文的映射
+                    chinese_names = {
+                        'Gender': '性别',
+                        'Age_Group': '年龄分层',
+                        'Monthly_Income': '月收入',
+                        'Education_Level': '文化程度',
+                        'Marital_Status': '婚姻状况',
+                        'Charlson_Comorbidity_Index': '查尔森共病指数评估量表',
+                        'Exercise_Tolerance_Scale': '运动耐量表',
+                        'GDS_Short_Form': '简版老年抑郁量表',
+                        'MNA_SF': '简易营养量表MNA-SF',
+                        'BMI_Category': 'BMI分层',
+                        'Neoadjuvant_Chemoradiotherapy': '新辅助放化疗',
+                        'Tumor_Location': '肿瘤部位',
+                        'Stage': '肿瘤分期',
+                        'ASA_Classification': 'ASA分级'
+                    }
                     input_data = []
-                    for feature_name, value in features_dict.items():
-                        # 根据特征名称显示对应的标签
-                        if feature_name == '性别':
+                    for eng_name, value in features_dict.items():
+                        chn_name = chinese_names.get(eng_name, eng_name)
+                        # 显示格式化值
+                        if eng_name == 'Gender':
                             display_value = f"{value} ({'女' if value == 0 else '男'})"
-                        elif feature_name == '年龄分层':
+                        elif eng_name == 'Age_Group':
                             mapping = {1: '60-69岁', 2: '70-79岁', 3: '≥80岁'}
                             display_value = f"{value} ({mapping[value]})"
-                        elif feature_name == '月收入':
+                        elif eng_name == 'Monthly_Income':
                             mapping = {1: '<2000元', 2: '2000-4000元', 3: '4000-6000元', 4: '>6000元'}
                             display_value = f"{value} ({mapping[value]})"
-                        elif feature_name == '文化程度':
+                        elif eng_name == 'Education_Level':
                             mapping = {1: '小学及以下', 2: '初中', 3: '高中/中专', 4: '大专及以上'}
                             display_value = f"{value} ({mapping[value]})"
-                        elif feature_name == '婚姻状况':
+                        elif eng_name == 'Marital_Status':
                             mapping = {0: '已婚', 1: '离异/丧偶'}
                             display_value = f"{value} ({mapping[value]})"
-                        elif feature_name == 'BMI分层':
+                        elif eng_name == 'BMI_Category':
                             mapping = {4: '偏瘦(<18.5)', 3: '正常(18.5-24)', 2: '超重(24-28)', 1: '肥胖(≥28)'}
                             display_value = f"{value} ({mapping[value]})"
+                        elif eng_name == 'Neoadjuvant_Chemoradiotherapy':
+                            display_value = f"{value} ({'是' if value == 1 else '否'})"
+                        elif eng_name == 'Tumor_Location':
+                            display_value = f"{value} ({'累计直肠或直肠恶性肿瘤' if value == 1 else '结肠恶性肿瘤'})"
+                        elif eng_name == 'Stage':
+                            display_value = f"{value}期"
+                        elif eng_name == 'ASA_Classification':
+                            display_value = f"{value}级"
                         else:
                             display_value = str(value)
-
                         input_data.append({
-                            '特征': feature_name,
+                            '特征': chn_name,
                             '输入值': display_value
                         })
-
                     input_df = pd.DataFrame(input_data)
                     st.table(input_df)
-
+    
     with tab2:
         st.subheader("关于此应用")
         st.markdown("""
         ### 应用说明
         这是一个基于OrderedModel（等级Logistic回归）的健康风险评估预测工具。
-
-        ### 模型特征
-        模型使用以下10个特征进行预测：
-
-        1. **性别**: 患者性别
-        2. **年龄分层**: 年龄分组
-        3. **月收入**: 经济状况指标
-        4. **文化程度**: 教育水平
-        5. **婚姻状况**: 婚姻状态
-        6. **查尔森共病指数评估量表**: 共病情况评估
-        7. **运动耐量表**: 身体活动能力评估
-        8. **简版老年抑郁量表**: 心理健康评估
-        9. **简易营养量表MNA-SF**: 营养状况评估
-        10. **BMI分层**: 体重指数分类
-
+        
+        ### 模型特征（14个）
+        1. **性别** (Gender)
+        2. **年龄分层** (Age_Group)
+        3. **月收入** (Monthly_Income)
+        4. **文化程度** (Education_Level)
+        5. **婚姻状况** (Marital_Status)
+        6. **新辅助放化疗** (Neoadjuvant_Chemoradiotherapy)
+        7. **肿瘤部位** (Tumor_Location)
+        8. **查尔森共病指数评估量表** (Charlson_Comorbidity_Index)
+        9. **运动耐量表** (Exercise_Tolerance_Scale)
+        10. **简版老年抑郁量表** (GDS_Short_Form)
+        11. **简易营养量表MNA-SF** (MNA_SF)
+        12. **BMI分层** (BMI_Category)
+        13. **肿瘤分期** (Stage)
+        14. **ASA分级** (ASA_Classification)
+        
         ### 使用说明
         1. 在"单个预测"标签页输入特征值
         2. 点击"开始预测"按钮
         3. 查看预测结果和概率分布
-
+        
         ### 注意事项
         - 预测结果仅供参考，不能替代专业医疗建议
         - 对于重要决策，建议结合临床评估和其他检查结果
         """)
-
 
 if __name__ == "__main__":
     main()
