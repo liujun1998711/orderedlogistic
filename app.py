@@ -383,4 +383,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-这是全部代码，请检查，因为修改predict_single函数后，仍然报错，显示以上页面
