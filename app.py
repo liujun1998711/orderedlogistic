@@ -32,25 +32,32 @@ def load_model():
 
 # 预测函数（特征键为英文）
 def predict_single(features_dict, model_data):
-    """单个样本预测，features_dict的键必须是英文"""
     try:
         feature_names = model_data['feature_names']
-        features_list = []
-        for feature in feature_names:
-            if feature not in features_dict:
-                raise KeyError(f"缺少特征: {feature}")
-            features_list.append(features_dict[feature])
-        
+        features_list = [features_dict[f] for f in feature_names]
         X_new = pd.DataFrame([features_list], columns=feature_names)
         res = model_data['res']
         predicted_probs = res.predict(X_new)
         
+        # 确保概率是一维列表
         if predicted_probs.ndim == 2:
-            probabilities = predicted_probs[0]
+            probabilities = predicted_probs[0].flatten().tolist()
         else:
-            probabilities = predicted_probs
+            probabilities = predicted_probs.flatten().tolist()
         
-        predicted_class = np.argmax(probabilities)
+        predicted_class = int(np.argmax(probabilities))
+        
+        # 获取类别标签
+        class_labels = model_data.get('y_category_labels')
+        if class_labels is None:
+            class_labels = model_data.get('y_categories')
+        if class_labels is None:
+            class_labels = list(range(len(probabilities)))
+        else:
+            # 转换为列表并确保长度一致
+            class_labels = list(class_labels)
+            if len(class_labels) != len(probabilities):
+                class_labels = list(range(len(probabilities)))
         
         if 'y_category_labels' in model_data:
             predicted_label = model_data['y_category_labels'][predicted_class]
@@ -63,9 +70,7 @@ def predict_single(features_dict, model_data):
             'prediction': predicted_class,
             'prediction_label': predicted_label,
             'probabilities': probabilities,
-            'class_labels': model_data.get('y_category_labels', 
-                                         model_data.get('y_categories', 
-                                                      list(range(len(probabilities))))),
+            'class_labels': class_labels,
             'feature_values': features_dict
         }
     except Exception as e:
