@@ -4,20 +4,8 @@ import pickle
 import pandas as pd
 import numpy as np
 import traceback
-import sys
-import sys
-import logging
-logging.basicConfig(level=logging.DEBUG, stream=sys.stderr, format='%(asctime)s - %(levelname)s - %(message)s')
-logging.info("Application starting...")
-# 捕获所有未处理的异常，并显示在页面上
-def show_exception(e):
-    st.error(f"❌ 发生错误: {str(e)}")
-    st.code(traceback.format_exc(), language="python")
-    st.stop()
 
-sys.excepthook = lambda exc_type, exc_val, exc_tb: show_exception(exc_val)
-
-# 设置页面配置
+# 设置页面配置（必须最先执行）
 st.set_page_config(
     page_title="等级Logistic回归预测计算器",
     page_icon="📊",
@@ -46,37 +34,25 @@ def load_model():
 # 预测函数（特征键为英文）
 def predict_single(features_dict, model_data):
     try:
-        import logging
-        logging.info("Entering predict_single")
         feature_names = model_data['feature_names']
-        logging.info(f"Feature names: {feature_names}")
-        
-        # 确保每个特征值都是 Python 原生类型（int/float）
+        # 确保特征顺序正确且转换为原生类型
         features_list = []
         for f in feature_names:
             val = features_dict.get(f)
             if val is None:
-                raise KeyError(f"Missing feature: {f}")
-            # 转换为 Python 原生数值（避免 numpy 类型）
+                raise KeyError(f"缺少特征: {f}")
+            # 将 numpy 类型转换为 Python 原生类型
             if isinstance(val, (np.integer, np.floating)):
                 val = val.item()
             features_list.append(val)
         
-        logging.info(f"Features list: {features_list}")
         X_new = pd.DataFrame([features_list], columns=feature_names)
-        logging.info(f"DataFrame created: {X_new}")
-        
         res = model_data['res']
-        logging.info("Calling res.predict...")
         pred_raw = res.predict(X_new)
-        logging.info(f"Prediction raw type: {type(pred_raw)}, shape: {getattr(pred_raw, 'shape', 'N/A')}")
         
-        # 强制转换为 numpy 数组并展平
+        # 安全转换为 numpy 数组并展平
         probs = np.asarray(pred_raw, dtype=np.float64).flatten()
-        logging.info(f"Probs after asarray: {probs}")
         probabilities = probs.tolist()
-        logging.info(f"Probabilities list: {probabilities}")
-        
         predicted_class = int(np.argmax(probabilities))
         
         # 获取类别标签
@@ -97,7 +73,6 @@ def predict_single(features_dict, model_data):
         else:
             predicted_label = str(predicted_class)
         
-        logging.info("Prediction successful")
         return {
             'prediction': predicted_class,
             'prediction_label': predicted_label,
@@ -107,9 +82,9 @@ def predict_single(features_dict, model_data):
         }
     except Exception as e:
         st.error(f"预测时出错: {str(e)}")
-        import traceback
         st.code(traceback.format_exc(), language="python")
         return None
+
 # 主函数
 def main():
     model_data = load_model()
@@ -130,8 +105,6 @@ def main():
         st.markdown("### 请输入特征值:")
         
         col1, col2 = st.columns(2)
-        
-        # 使用英文键存储，但显示中文标签
         features_dict = {}
         
         with col1:
@@ -319,7 +292,6 @@ def main():
                 
                 # 显示输入特征值（中文显示）
                 with st.expander("📝 查看输入的特征值"):
-                    # 建立英文到中文的映射
                     chinese_names = {
                         'Gender': '性别',
                         'Age_Group': '年龄分层',
@@ -339,7 +311,6 @@ def main():
                     input_data = []
                     for eng_name, value in features_dict.items():
                         chn_name = chinese_names.get(eng_name, eng_name)
-                        # 显示格式化值
                         if eng_name == 'Gender':
                             display_value = f"{value} ({'女' if value == 0 else '男'})"
                         elif eng_name == 'Age_Group':
