@@ -46,31 +46,50 @@ def load_model():
 # 预测函数（特征键为英文）
 def predict_single(features_dict, model_data):
     try:
+        import logging
+        logging.info("Entering predict_single")
         feature_names = model_data['feature_names']
-        features_list = [features_dict[f] for f in feature_names]
-        X_new = pd.DataFrame([features_list], columns=feature_names)
-        res = model_data['res']
-        predicted_probs = res.predict(X_new)
+        logging.info(f"Feature names: {feature_names}")
         
-        # 强制转为 numpy 数组并展平为一维列表
-        probs_array = np.array(predicted_probs).flatten()
-        probabilities = probs_array.tolist()
+        # 确保每个特征值都是 Python 原生类型（int/float）
+        features_list = []
+        for f in feature_names:
+            val = features_dict.get(f)
+            if val is None:
+                raise KeyError(f"Missing feature: {f}")
+            # 转换为 Python 原生数值（避免 numpy 类型）
+            if isinstance(val, (np.integer, np.floating)):
+                val = val.item()
+            features_list.append(val)
+        
+        logging.info(f"Features list: {features_list}")
+        X_new = pd.DataFrame([features_list], columns=feature_names)
+        logging.info(f"DataFrame created: {X_new}")
+        
+        res = model_data['res']
+        logging.info("Calling res.predict...")
+        pred_raw = res.predict(X_new)
+        logging.info(f"Prediction raw type: {type(pred_raw)}, shape: {getattr(pred_raw, 'shape', 'N/A')}")
+        
+        # 强制转换为 numpy 数组并展平
+        probs = np.asarray(pred_raw, dtype=np.float64).flatten()
+        logging.info(f"Probs after asarray: {probs}")
+        probabilities = probs.tolist()
+        logging.info(f"Probabilities list: {probabilities}")
         
         predicted_class = int(np.argmax(probabilities))
         
-        # 获取类别标签，并确保长度与概率一致
+        # 获取类别标签
         class_labels = model_data.get('y_category_labels')
         if class_labels is None:
             class_labels = model_data.get('y_categories')
         if class_labels is None:
-            class_labels = list(range(len(probabilities)))
+            class_labels = [f"等级{i}" for i in range(len(probabilities))]
         else:
             class_labels = list(class_labels)
             if len(class_labels) != len(probabilities):
-                # 若长度不一致，自动生成数字标签
-                class_labels = list(range(len(probabilities)))
+                class_labels = [f"等级{i}" for i in range(len(probabilities))]
         
-        # 预测等级的标签
         if 'y_category_labels' in model_data:
             predicted_label = model_data['y_category_labels'][predicted_class]
         elif 'y_categories' in model_data:
@@ -78,6 +97,7 @@ def predict_single(features_dict, model_data):
         else:
             predicted_label = str(predicted_class)
         
+        logging.info("Prediction successful")
         return {
             'prediction': predicted_class,
             'prediction_label': predicted_label,
@@ -87,6 +107,8 @@ def predict_single(features_dict, model_data):
         }
     except Exception as e:
         st.error(f"预测时出错: {str(e)}")
+        import traceback
+        st.code(traceback.format_exc(), language="python")
         return None
 # 主函数
 def main():
