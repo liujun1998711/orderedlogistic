@@ -3,6 +3,16 @@ import streamlit as st
 import pickle
 import pandas as pd
 import numpy as np
+import traceback
+import sys
+
+# 捕获所有未处理的异常，并显示在页面上
+def show_exception(e):
+    st.error(f"❌ 发生错误: {str(e)}")
+    st.code(traceback.format_exc(), language="python")
+    st.stop()
+
+sys.excepthook = lambda exc_type, exc_val, exc_tb: show_exception(exc_val)
 
 # 设置页面配置
 st.set_page_config(
@@ -32,33 +42,40 @@ def load_model():
 
 # 预测函数（特征键为英文）
 def predict_single(features_dict, model_data):
-    """单个样本预测"""
     try:
         feature_names = model_data['feature_names']
-        features_list = [features_dict[f] for f in feature_names]
+        # 确保特征顺序完全一致
+        features_list = [features_dict.get(f) for f in feature_names]
+        if any(v is None for v in features_list):
+            missing = [f for f, v in zip(feature_names, features_list) if v is None]
+            raise KeyError(f"缺失特征: {missing}")
+        
         X_new = pd.DataFrame([features_list], columns=feature_names)
         res = model_data['res']
         
-        # predict 返回的是 pandas Series，先转 numpy 再展平
-        probs_series = res.predict(X_new)          # 可能是 Series 或 DataFrame
-        probs_array = np.array(probs_series)       # 转为 ndarray
-        probabilities = probs_array.flatten().tolist()  # 展平为一维列表
+        # ---------- 关键修复 ----------
+        pred_raw = res.predict(X_new)
+        # 无论返回什么类型，都转为 numpy 数组并展平
+        probs = np.asarray(pred_raw).flatten()
+        # 确保是一维列表
+        probabilities = probs.tolist()
+        # ----------------------------
         
         predicted_class = int(np.argmax(probabilities))
         
-        # 获取类别标签，确保长度与概率一致
+        # 获取类别标签，并确保长度一致
         class_labels = model_data.get('y_category_labels')
         if class_labels is None:
             class_labels = model_data.get('y_categories')
         if class_labels is None:
-            class_labels = list(range(len(probabilities)))
+            class_labels = [f"等级{i}" for i in range(len(probabilities))]
         else:
             class_labels = list(class_labels)
             if len(class_labels) != len(probabilities):
-                # 若长度不匹配，自动补充数字标签
+                # 长度不匹配，自动生成
                 class_labels = [f"等级{i}" for i in range(len(probabilities))]
         
-        # 预测等级的标签
+        # 预测等级名称
         if 'y_category_labels' in model_data:
             predicted_label = model_data['y_category_labels'][predicted_class]
         elif 'y_categories' in model_data:
@@ -75,7 +92,8 @@ def predict_single(features_dict, model_data):
         }
     except Exception as e:
         st.error(f"预测时出错: {str(e)}")
-        return None     
+        st.code(traceback.format_exc(), language="python")
+        return None
 # 主函数
 def main():
     model_data = load_model()
