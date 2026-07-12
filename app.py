@@ -32,33 +32,33 @@ def load_model():
 
 # 预测函数（特征键为英文）
 def predict_single(features_dict, model_data):
+    """单个样本预测"""
     try:
         feature_names = model_data['feature_names']
         features_list = [features_dict[f] for f in feature_names]
         X_new = pd.DataFrame([features_list], columns=feature_names)
         res = model_data['res']
-        predicted_probs = res.predict(X_new)
         
-        # 确保概率是一维列表
-        if predicted_probs.ndim == 2:
-            probabilities = predicted_probs[0].flatten().tolist()
-        else:
-            probabilities = predicted_probs.flatten().tolist()
+        # predict 返回的是 pandas Series，先转 numpy 再展平
+        probs_series = res.predict(X_new)          # 可能是 Series 或 DataFrame
+        probs_array = np.array(probs_series)       # 转为 ndarray
+        probabilities = probs_array.flatten().tolist()  # 展平为一维列表
         
         predicted_class = int(np.argmax(probabilities))
         
-        # 获取类别标签
+        # 获取类别标签，确保长度与概率一致
         class_labels = model_data.get('y_category_labels')
         if class_labels is None:
             class_labels = model_data.get('y_categories')
         if class_labels is None:
             class_labels = list(range(len(probabilities)))
         else:
-            # 转换为列表并确保长度一致
             class_labels = list(class_labels)
             if len(class_labels) != len(probabilities):
-                class_labels = list(range(len(probabilities)))
+                # 若长度不匹配，自动补充数字标签
+                class_labels = [f"等级{i}" for i in range(len(probabilities))]
         
+        # 预测等级的标签
         if 'y_category_labels' in model_data:
             predicted_label = model_data['y_category_labels'][predicted_class]
         elif 'y_categories' in model_data:
@@ -75,8 +75,7 @@ def predict_single(features_dict, model_data):
         }
     except Exception as e:
         st.error(f"预测时出错: {str(e)}")
-        return None
-
+        return None     
 # 主函数
 def main():
     model_data = load_model()
