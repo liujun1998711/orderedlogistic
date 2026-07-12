@@ -101,7 +101,7 @@ def main():
         
         with col2:
             features_dict['Charlson_Comorbidity_Index'] = st.slider("查尔森共病指数评估量表", 0,20,0)
-            features_dict['Exercise_Tolerance_Scale'] = st.slider("运动耐量表", 0.0,10.0,5.0,0.1)
+            features_dict['Exercise_Tolerance_Scale'] = st.selectbox("运动耐量表", [0, 1, 2], format_func=lam
             features_dict['GDS_Short_Form'] = st.slider("简版老年抑郁量表", 0,15,5)
             features_dict['MNA_SF'] = st.slider("简易营养量表MNA-SF", 0,14,8)
             features_dict['BMI_Category'] = st.selectbox("BMI分层", [4,3,2,1], format_func=lambda x: ["偏瘦(<18.5)","正常(18.5-24)","超重(24-28)","肥胖(≥28)"][4-x])
