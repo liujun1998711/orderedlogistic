@@ -5,7 +5,10 @@ import pandas as pd
 import numpy as np
 import traceback
 import sys
-
+import sys
+import logging
+logging.basicConfig(level=logging.DEBUG, stream=sys.stderr, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.info("Application starting...")
 # 捕获所有未处理的异常，并显示在页面上
 def show_exception(e):
     st.error(f"❌ 发生错误: {str(e)}")
