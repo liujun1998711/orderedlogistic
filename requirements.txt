@@ -1,5 +1,5 @@
-streamlit==1.28.0
-pandas==2.0.3
-numpy==1.24.3
-statsmodels==0.14.0
-scipy==1.10.1
+streamlit
+pandas
+numpy
+statsmodels
+scipy
